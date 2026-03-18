@@ -14,7 +14,12 @@
       "Bash(pkill -f \"next dev\")",
       "Bash(git rm:*)",
       "Bash(git push:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm list:*)",
+      "Bash(vercel:*)",
+      "Bash(curl -sI https://lifeos-one-phi.vercel.app)",
+      "Bash(curl -sI https://lifeos-63xy068t3-humbertodvigos-projects.vercel.app)",
+      "Bash(curl:*)"
     ]
   }
 }
