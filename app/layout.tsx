@@ -6,8 +6,20 @@ import { Providers } from "@/components/shared/providers";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Life OS",
+  title: {
+    default: "Life OS",
+    template: "%s | Life OS",
+  },
   description: "Sistema pessoal de gestão de vida",
+  applicationName: "Life OS",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Life OS",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({

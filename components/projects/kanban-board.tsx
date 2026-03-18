@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -42,7 +43,9 @@ const COLUMNS: Column[] = [
 ]
 
 export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps) {
+  const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const committedTasks = useRef<Task[]>(initialTasks)
   const [isPending, startTransition] = useTransition()
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -55,11 +58,18 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
   const [newDueDate, setNewDueDate] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
+  // Sync with server data after router.refresh()
+  useEffect(() => {
+    setTasks(initialTasks)
+    committedTasks.current = initialTasks
+  }, [initialTasks])
+
   function getColumnTasks(status: Task['status']) {
     return tasks.filter((t) => t.status === status)
   }
 
   function handleStatusChange(id: string, newStatus: Task['status']) {
+    const previous = tasks
     // Optimistic update
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
@@ -69,6 +79,9 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
     startTransition(async () => {
       const result = await updateTaskStatus(id, newStatus)
       if (result.success) {
+        committedTasks.current = tasks.map((t) =>
+          t.id === id ? { ...t, status: newStatus } : t
+        )
         const statusLabels: Record<Task['status'], string> = {
           todo: 'A Fazer',
           in_progress: 'Em Progresso',
@@ -77,8 +90,7 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
         }
         toast.success(`Tarefa movida para "${statusLabels[newStatus]}".`)
       } else {
-        // Revert optimistic update on error
-        setTasks(initialTasks)
+        setTasks(previous)
         toast.error(result.error ?? 'Erro ao mover tarefa.')
       }
       setUpdatingId(null)
@@ -86,6 +98,7 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
   }
 
   function handleDelete(id: string) {
+    const previous = tasks
     setDeletingId(id)
     // Optimistic remove
     setTasks((prev) => prev.filter((t) => t.id !== id))
@@ -93,10 +106,10 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
     startTransition(async () => {
       const result = await deleteTask(id)
       if (result.success) {
+        committedTasks.current = committedTasks.current.filter((t) => t.id !== id)
         toast.success('Tarefa excluída.')
       } else {
-        // Revert
-        setTasks(initialTasks)
+        setTasks(previous)
         toast.error(result.error ?? 'Erro ao excluir tarefa.')
       }
       setDeletingId(null)
@@ -110,23 +123,43 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
       return
     }
 
-    setIsCreating(true)
-    const result = await createTask({
+    const tempId = `temp-${Date.now()}`
+    const tempTask: Task = {
+      id: tempId,
       title: newTitle.trim(),
+      status: 'todo',
       priority: newPriority,
-      project_id: newProjectId || undefined,
-      due_date: newDueDate || undefined,
+      project_id: newProjectId || null,
+      due_date: newDueDate || null,
+      user_id: '',
+      assignee_id: null,
+      tags: [],
+      created_at: new Date().toISOString(),
+    }
+
+    setIsCreating(true)
+    setTasks((prev) => [...prev, tempTask])
+    setDialogOpen(false)
+    setNewTitle('')
+    setNewPriority('medium')
+    setNewProjectId('')
+    setNewDueDate('')
+
+    const result = await createTask({
+      title: tempTask.title,
+      priority: tempTask.priority,
+      project_id: tempTask.project_id ?? undefined,
+      due_date: tempTask.due_date ?? undefined,
     })
     setIsCreating(false)
 
     if (result.success) {
       toast.success('Tarefa criada com sucesso!')
-      setNewTitle('')
-      setNewPriority('medium')
-      setNewProjectId('')
-      setNewDueDate('')
-      setDialogOpen(false)
+      router.refresh()
     } else {
+      setTasks((prev) => prev.filter((t) => t.id !== tempId))
+      setDialogOpen(true)
+      setNewTitle(tempTask.title)
       toast.error(result.error ?? 'Erro ao criar tarefa.')
     }
   }

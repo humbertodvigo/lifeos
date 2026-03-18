@@ -37,7 +37,7 @@ interface NoteDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   note?: Note | null
-  onSaved?: () => void
+  onSaved?: (note: Note) => void
 }
 
 const TYPE_OPTIONS = [
@@ -97,18 +97,21 @@ export function NoteDialog({ open, onOpenChange, note, onSaved }: NoteDialogProp
 
     setLoading(true)
     try {
-      let result
+      const now = new Date().toISOString()
       if (note) {
-        result = await updateNote(note.id, { title, content, type, tags })
+        const result = await updateNote(note.id, { title, content, type, tags })
         if (result.error) throw new Error(result.error)
         toast.success('Nota atualizada!')
+        onSaved?.({ ...note, title, content: content || null, type, tags, updated_at: now })
       } else {
-        result = await createNote({ title, content, type, tags })
+        const result = await createNote({ title, content, type, tags })
         if (result.error) throw new Error(result.error)
         toast.success('Nota criada!')
+        if (result.data) {
+          onSaved?.(result.data as Note)
+        }
       }
       onOpenChange(false)
-      onSaved?.()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao salvar nota.'
       toast.error(message)
@@ -125,7 +128,6 @@ export function NoteDialog({ open, onOpenChange, note, onSaved }: NoteDialogProp
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Title */}
           <div className="space-y-1.5">
             <Label htmlFor="note-title">Título</Label>
             <Input
@@ -136,7 +138,6 @@ export function NoteDialog({ open, onOpenChange, note, onSaved }: NoteDialogProp
             />
           </div>
 
-          {/* Type */}
           <div className="space-y-1.5">
             <Label htmlFor="note-type">Tipo</Label>
             <Select value={type} onValueChange={setType}>
@@ -153,7 +154,6 @@ export function NoteDialog({ open, onOpenChange, note, onSaved }: NoteDialogProp
             </Select>
           </div>
 
-          {/* Tags */}
           <div className="space-y-1.5">
             <Label htmlFor="note-tags">Tags</Label>
             <Input
@@ -182,7 +182,6 @@ export function NoteDialog({ open, onOpenChange, note, onSaved }: NoteDialogProp
             )}
           </div>
 
-          {/* Content */}
           <div className="space-y-1.5">
             <Label htmlFor="note-content">Conteúdo</Label>
             <Textarea

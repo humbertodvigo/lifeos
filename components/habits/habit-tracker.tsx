@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { CheckCircle2, Circle, Flame, Plus, Loader2, Trash2 } from 'lucide-react'
@@ -29,9 +30,13 @@ interface HabitTrackerProps {
   streaks: Record<string, number>
 }
 
-export function HabitTracker({ habits, todayLogs, streaks }: HabitTrackerProps) {
+export function HabitTracker({ habits: initialHabits, todayLogs: initialLogs, streaks: initialStreaks }: HabitTrackerProps) {
+  const router = useRouter()
   const today = format(new Date(), 'yyyy-MM-dd')
   const [isPending, startTransition] = useTransition()
+  const [habits, setHabits] = useState<Habit[]>(initialHabits)
+  const [todayLogs, setTodayLogs] = useState<HabitLog[]>(initialLogs)
+  const [streaks, setStreaks] = useState<Record<string, number>>(initialStreaks)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -42,25 +47,42 @@ export function HabitTracker({ habits, todayLogs, streaks }: HabitTrackerProps) 
   const [newArea, setNewArea] = useState<string>('')
   const [isCreating, setIsCreating] = useState(false)
 
-  const doneSet = new Set(
-    todayLogs.filter((l) => l.done).map((l) => l.habit_id)
-  )
+  // Sync with server after router.refresh()
+  useEffect(() => {
+    setHabits(initialHabits)
+    setTodayLogs(initialLogs)
+    setStreaks(initialStreaks)
+  }, [initialHabits, initialLogs, initialStreaks])
 
+  const doneSet = new Set(todayLogs.filter((l) => l.done).map((l) => l.habit_id))
   const doneCount = habits.filter((h) => doneSet.has(h.id)).length
 
   function handleToggle(habit: Habit) {
     const isDone = doneSet.has(habit.id)
     setTogglingId(habit.id)
 
+    // Optimistic update
+    if (isDone) {
+      setTodayLogs((prev) => prev.map((l) => l.habit_id === habit.id ? { ...l, done: false } : l))
+    } else {
+      setTodayLogs((prev) => {
+        const existing = prev.find((l) => l.habit_id === habit.id)
+        if (existing) return prev.map((l) => l.habit_id === habit.id ? { ...l, done: true } : l)
+        return [...prev, { id: `temp-${habit.id}`, habit_id: habit.id, user_id: '', date: today, done: true, note: null }]
+      })
+    }
+
     startTransition(async () => {
       const result = await toggleHabitLog(habit.id, today, !isDone)
       if (result.success) {
         toast.success(
           !isDone
-            ? `"${habit.title}" marcado como concluído!`
+            ? `"${habit.title}" concluído!`
             : `"${habit.title}" desmarcado.`
         )
       } else {
+        // Revert
+        setTodayLogs(initialLogs)
         toast.error(result.error ?? 'Erro ao registrar hábito.')
       }
       setTogglingId(null)
@@ -69,11 +91,15 @@ export function HabitTracker({ habits, todayLogs, streaks }: HabitTrackerProps) 
 
   function handleDelete(habit: Habit) {
     setDeletingId(habit.id)
+    // Optimistic remove
+    setHabits((prev) => prev.filter((h) => h.id !== habit.id))
+
     startTransition(async () => {
       const result = await deleteHabit(habit.id)
       if (result.success) {
         toast.success(`"${habit.title}" removido.`)
       } else {
+        setHabits(initialHabits)
         toast.error(result.error ?? 'Erro ao remover hábito.')
       }
       setDeletingId(null)
@@ -101,6 +127,7 @@ export function HabitTracker({ habits, todayLogs, streaks }: HabitTrackerProps) 
       setNewFrequency('daily')
       setNewArea('')
       setDialogOpen(false)
+      router.refresh()
     } else {
       toast.error(result.error ?? 'Erro ao criar hábito.')
     }
@@ -211,10 +238,14 @@ export function HabitTracker({ habits, todayLogs, streaks }: HabitTrackerProps) 
 
       {habits.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
+          <CardContent className="py-12 text-center space-y-3">
             <p className="text-muted-foreground text-sm">
-              Nenhum hábito ativo. Crie seu primeiro hábito!
+              Nenhum hábito ativo ainda.
             </p>
+            <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Criar primeiro hábito
+            </Button>
           </CardContent>
         </Card>
       ) : (

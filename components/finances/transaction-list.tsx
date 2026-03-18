@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -28,19 +28,27 @@ interface TransactionListProps {
   transactions: Transaction[]
 }
 
-export function TransactionList({ transactions }: TransactionListProps) {
+export function TransactionList({ transactions: initialTransactions }: TransactionListProps) {
+  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTransactions(initialTransactions)
+  }, [initialTransactions])
 
   const handleDelete = async (id: string) => {
     setDeletingId(id)
+    setTransactions((prev) => prev.filter((t) => t.id !== id))
     try {
       const result = await deleteTransaction(id)
       if (result.success) {
         toast.success('Transação excluída.')
       } else {
+        setTransactions(initialTransactions)
         toast.error(result.error ?? 'Erro ao excluir.')
       }
     } catch {
+      setTransactions(initialTransactions)
       toast.error('Erro inesperado.')
     } finally {
       setDeletingId(null)

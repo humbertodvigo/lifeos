@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { formatDistanceToNow, parseISO, differenceInDays } from 'date-fns'
+import { formatDistanceToNow, parseISO, differenceInDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createContact, logContact, deleteContact } from '@/lib/actions/relationships'
 import { Button } from '@/components/ui/button'
@@ -51,7 +52,13 @@ function getContactStatus(contact: Contact): 'overdue' | 'due-soon' | 'ok' {
   return 'ok'
 }
 
-function LogContactDialog({ contact }: { contact: Contact }) {
+function LogContactDialog({
+  contact,
+  onLogged,
+}: {
+  contact: Contact
+  onLogged: (contactId: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [medium, setMedium] = useState('')
@@ -70,6 +77,7 @@ function LogContactDialog({ contact }: { contact: Contact }) {
         setOpen(false)
         setMedium('')
         setSummary('')
+        onLogged(contact.id)
       } else {
         toast.error(result.error ?? 'Erro ao registrar contato.')
       }
@@ -128,7 +136,7 @@ function LogContactDialog({ contact }: { contact: Contact }) {
   )
 }
 
-function NewContactDialog() {
+function NewContactDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
@@ -160,6 +168,7 @@ function NewContactDialog() {
         setFrequencyDays('')
         setBirthday('')
         setNotes('')
+        onCreated()
       } else {
         toast.error(result.error ?? 'Erro ao criar contato.')
       }
@@ -184,9 +193,9 @@ function NewContactDialog() {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-1.5">
-            <Label htmlFor="name">Nome *</Label>
+            <Label htmlFor="c-name">Nome *</Label>
             <Input
-              id="name"
+              id="c-name"
               placeholder="Nome completo"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -195,9 +204,9 @@ function NewContactDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="relationship">Relacionamento</Label>
+            <Label htmlFor="c-rel">Relacionamento</Label>
             <Input
-              id="relationship"
+              id="c-rel"
               placeholder="Ex: Amigo, Família, Mentor"
               value={relationship}
               onChange={(e) => setRelationship(e.target.value)}
@@ -205,9 +214,9 @@ function NewContactDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="frequency">Frequência de contato (dias)</Label>
+            <Label htmlFor="c-freq">Frequência de contato (dias)</Label>
             <Input
-              id="frequency"
+              id="c-freq"
               type="number"
               min={1}
               placeholder="Ex: 14 (a cada 2 semanas)"
@@ -217,9 +226,9 @@ function NewContactDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="birthday">Aniversário</Label>
+            <Label htmlFor="c-bday">Aniversário</Label>
             <Input
-              id="birthday"
+              id="c-bday"
               type="date"
               value={birthday}
               onChange={(e) => setBirthday(e.target.value)}
@@ -227,9 +236,9 @@ function NewContactDialog() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notas</Label>
+            <Label htmlFor="c-notes">Notas</Label>
             <Textarea
-              id="notes"
+              id="c-notes"
               placeholder="Informações relevantes sobre este contato"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -246,29 +255,50 @@ function NewContactDialog() {
   )
 }
 
-export function ContactList({ contacts }: ContactListProps) {
+export function ContactList({ contacts: initialContacts }: ContactListProps) {
+  const router = useRouter()
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setContacts(initialContacts)
+  }, [initialContacts])
 
   const handleDelete = async (id: string) => {
     setDeletingId(id)
+    // Optimistic remove
+    setContacts((prev) => prev.filter((c) => c.id !== id))
     try {
       const result = await deleteContact(id)
       if (result.success) {
         toast.success('Contato excluído.')
       } else {
+        setContacts(initialContacts)
         toast.error(result.error ?? 'Erro ao excluir.')
       }
     } catch {
+      setContacts(initialContacts)
       toast.error('Erro inesperado.')
     } finally {
       setDeletingId(null)
     }
   }
 
+  function handleLogged(contactId: string) {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    setContacts((prev) =>
+      prev.map((c) => (c.id === contactId ? { ...c, last_contact_at: today } : c))
+    )
+  }
+
+  function handleCreated() {
+    router.refresh()
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <NewContactDialog />
+        <NewContactDialog onCreated={handleCreated} />
       </div>
 
       {contacts.length === 0 ? (
@@ -319,7 +349,7 @@ export function ContactList({ contacts }: ContactListProps) {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <LogContactDialog contact={contact} />
+                  <LogContactDialog contact={contact} onLogged={handleLogged} />
                   <Button
                     variant="ghost"
                     size="icon"

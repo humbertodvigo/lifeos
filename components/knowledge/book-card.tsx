@@ -24,7 +24,8 @@ interface Book {
 
 interface BookCardProps {
   book: Book
-  onUpdated?: () => void
+  onUpdated?: (update: Partial<Book>) => void
+  onDeleted?: () => void
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -39,19 +40,20 @@ const STATUS_COLORS: Record<string, string> = {
   read: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
 }
 
-export function BookCard({ book, onUpdated }: BookCardProps) {
+export function BookCard({ book, onUpdated, onDeleted }: BookCardProps) {
   const [loading, setLoading] = useState(false)
 
   async function handleMarkAsReading() {
     setLoading(true)
     try {
-      const result = await updateBook(book.id, {
+      const update = {
         status: 'reading',
         started_at: new Date().toISOString().split('T')[0],
-      })
+      }
+      const result = await updateBook(book.id, update)
       if (result.error) throw new Error(result.error)
       toast.success('Marcado como lendo!')
-      onUpdated?.()
+      onUpdated?.(update)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao atualizar livro.'
       toast.error(message)
@@ -63,13 +65,14 @@ export function BookCard({ book, onUpdated }: BookCardProps) {
   async function handleMarkAsRead() {
     setLoading(true)
     try {
-      const result = await updateBook(book.id, {
+      const update = {
         status: 'read',
         finished_at: new Date().toISOString().split('T')[0],
-      })
+      }
+      const result = await updateBook(book.id, update)
       if (result.error) throw new Error(result.error)
       toast.success('Marcado como lido!')
-      onUpdated?.()
+      onUpdated?.(update)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao atualizar livro.'
       toast.error(message)
@@ -84,7 +87,7 @@ export function BookCard({ book, onUpdated }: BookCardProps) {
       const result = await updateBook(book.id, { rating })
       if (result.error) throw new Error(result.error)
       toast.success('Avaliação salva!')
-      onUpdated?.()
+      onUpdated?.({ rating })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao salvar avaliação.'
       toast.error(message)
@@ -100,7 +103,7 @@ export function BookCard({ book, onUpdated }: BookCardProps) {
       const result = await deleteBook(book.id)
       if (result.error) throw new Error(result.error)
       toast.success('Livro excluído.')
-      onUpdated?.()
+      onDeleted?.()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao excluir livro.'
       toast.error(message)
@@ -139,7 +142,6 @@ export function BookCard({ book, onUpdated }: BookCardProps) {
               <p className="text-xs text-muted-foreground line-clamp-2">{book.notes}</p>
             )}
 
-            {/* Star rating for read books */}
             {book.status === 'read' && (
               <div className="flex items-center gap-0.5 pt-1">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -164,7 +166,6 @@ export function BookCard({ book, onUpdated }: BookCardProps) {
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex flex-col gap-1.5 flex-shrink-0">
             {book.status === 'want_to_read' && (
               <Button

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Header } from '@/components/shared/header'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -78,8 +79,9 @@ const NOTE_FILTERS = [
 ]
 
 export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientProps) {
+  const router = useRouter()
   const [notes, setNotes] = useState<Note[]>(initialNotes)
-  const [books] = useState<Book[]>(initialBooks)
+  const [books, setBooks] = useState<Book[]>(initialBooks)
   const [noteFilter, setNoteFilter] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
@@ -99,6 +101,18 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
     setDialogOpen(true)
   }
 
+  function handleNoteSaved(note: Note) {
+    setNotes((prev) => {
+      const idx = prev.findIndex((n) => n.id === note.id)
+      if (idx >= 0) {
+        const updated = [...prev]
+        updated[idx] = note
+        return updated
+      }
+      return [note, ...prev]
+    })
+  }
+
   async function handleDeleteNote(id: string) {
     if (!confirm('Excluir esta nota?')) return
     const result = await deleteNote(id)
@@ -108,6 +122,21 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
       toast.success('Nota excluída.')
       setNotes((prev) => prev.filter((n) => n.id !== id))
     }
+  }
+
+  function handleBookUpdated(bookId: string, update: Partial<Book>) {
+    setBooks((prev) =>
+      prev.map((b) => (b.id === bookId ? { ...b, ...update } : b))
+    )
+  }
+
+  function handleBookDeleted(bookId: string) {
+    setBooks((prev) => prev.filter((b) => b.id !== bookId))
+  }
+
+  function handleBookAdded(book: Book) {
+    setBooks((prev) => [...prev, book])
+    setAddBookOpen(false)
   }
 
   const readingBooks = books.filter((b) => b.status === 'reading')
@@ -123,8 +152,8 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
           <Tabs defaultValue="notes">
             <div className="flex items-center justify-between mb-4">
               <TabsList>
-                <TabsTrigger value="notes">Notas</TabsTrigger>
-                <TabsTrigger value="books">Livros</TabsTrigger>
+                <TabsTrigger value="notes">Notas ({notes.length})</TabsTrigger>
+                <TabsTrigger value="books">Livros ({books.length})</TabsTrigger>
               </TabsList>
               <Button size="sm" onClick={handleNewNote}>
                 <Plus className="w-4 h-4 mr-1" />
@@ -233,16 +262,22 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
                 title="Lendo"
                 books={readingBooks}
                 emptyText="Nenhum livro em leitura."
+                onUpdated={handleBookUpdated}
+                onDeleted={handleBookDeleted}
               />
               <BookSection
                 title="Quero Ler"
                 books={wantToReadBooks}
                 emptyText="Nenhum livro na lista."
+                onUpdated={handleBookUpdated}
+                onDeleted={handleBookDeleted}
               />
               <BookSection
                 title="Lidos"
                 books={readBooks}
                 emptyText="Nenhum livro concluído."
+                onUpdated={handleBookUpdated}
+                onDeleted={handleBookDeleted}
               />
             </TabsContent>
           </Tabs>
@@ -253,9 +288,14 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         note={selectedNote}
+        onSaved={handleNoteSaved}
       />
 
-      <AddBookDialog open={addBookOpen} onOpenChange={setAddBookOpen} />
+      <AddBookDialog
+        open={addBookOpen}
+        onOpenChange={setAddBookOpen}
+        onAdded={handleBookAdded}
+      />
     </div>
   )
 }
@@ -264,10 +304,14 @@ function BookSection({
   title,
   books,
   emptyText,
+  onUpdated,
+  onDeleted,
 }: {
   title: string
   books: Book[]
   emptyText: string
+  onUpdated: (id: string, update: Partial<Book>) => void
+  onDeleted: (id: string) => void
 }) {
   return (
     <div className="space-y-3">
@@ -279,7 +323,12 @@ function BookSection({
       ) : (
         <div className="space-y-2">
           {books.map((book) => (
-            <BookCard key={book.id} book={book} />
+            <BookCard
+              key={book.id}
+              book={book}
+              onUpdated={(update) => onUpdated(book.id, update)}
+              onDeleted={() => onDeleted(book.id)}
+            />
           ))}
         </div>
       )}
@@ -290,9 +339,11 @@ function BookSection({
 function AddBookDialog({
   open,
   onOpenChange,
+  onAdded,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onAdded: (book: Book) => void
 }) {
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
@@ -309,10 +360,12 @@ function AddBookDialog({
       const result = await createBook({ title, author: author || undefined, status })
       if (result.error) throw new Error(result.error)
       toast.success('Livro adicionado!')
+      if (result.data) {
+        onAdded(result.data as Book)
+      }
       setTitle('')
       setAuthor('')
       setStatus('want_to_read')
-      onOpenChange(false)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao adicionar livro.'
       toast.error(message)
