@@ -27,7 +27,7 @@ export async function getTimeEntries(taskId: string): Promise<TimeListResult> {
   }
 }
 
-export async function startTimer(taskId: string): Promise<TimeResult> {
+export async function startTimer(taskId: string, subtaskId?: string): Promise<TimeResult> {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -58,6 +58,7 @@ export async function startTimer(taskId: string): Promise<TimeResult> {
       .from('time_entries')
       .insert({
         task_id: taskId,
+        subtask_id: subtaskId ?? null,
         user_id: user.id,
         started_at: new Date().toISOString(),
       })

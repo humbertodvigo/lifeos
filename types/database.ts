@@ -300,6 +300,7 @@ export interface Database {
         Row: {
           id: string
           task_id: string
+          subtask_id: string | null
           user_id: string
           started_at: string
           ended_at: string | null
@@ -310,6 +311,7 @@ export interface Database {
         Insert: {
           id?: string
           task_id: string
+          subtask_id?: string | null
           user_id: string
           started_at?: string
           ended_at?: string | null
@@ -320,11 +322,44 @@ export interface Database {
         Update: {
           id?: string
           task_id?: string
+          subtask_id?: string | null
           user_id?: string
           started_at?: string
           ended_at?: string | null
           duration_seconds?: number | null
           note?: string | null
+          created_at?: string
+        }
+      }
+      kanban_stages: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          slug: string
+          position: number
+          color: string
+          is_terminal: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          slug: string
+          position?: number
+          color?: string
+          is_terminal?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          slug?: string
+          position?: number
+          color?: string
+          is_terminal?: boolean
           created_at?: string
         }
       }

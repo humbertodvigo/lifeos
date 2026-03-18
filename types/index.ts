@@ -58,11 +58,22 @@ export type Task = {
   user_id: string
   title: string
   description: string | null
-  status: 'todo' | 'in_progress' | 'done' | 'archived'
+  status: string
   due_date: string | null
   priority: 'low' | 'medium' | 'high'
   assignee_id: string | null
   tags: string[]
+  created_at: string
+}
+
+export type KanbanStage = {
+  id: string
+  user_id: string
+  title: string
+  slug: string
+  position: number
+  color: string
+  is_terminal: boolean
   created_at: string
 }
 
@@ -76,6 +87,7 @@ export type Subtask = {
 export type TimeEntry = {
   id: string
   task_id: string
+  subtask_id: string | null
   user_id: string
   started_at: string
   ended_at: string | null

@@ -381,7 +381,7 @@ export async function deleteTask(id: string): Promise<ActionResult> {
 
 export async function updateTaskStatus(
   id: string,
-  status: 'todo' | 'in_progress' | 'done' | 'archived'
+  status: string
 ): Promise<ActionResult> {
   try {
     const supabase = await createClient()

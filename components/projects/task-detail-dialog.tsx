@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import {
   X, Trash2, Plus, Circle, CheckCircle2, CalendarDays,
   Tag, Loader2, AlertCircle, FolderOpen, Play, Square as SquareIcon,
-  Clock, Timer,
+  Clock, Timer, Pause,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -115,6 +115,7 @@ export function TaskDetailDialog({
 
   const activeEntry = timeEntries.find((e) => !e.ended_at) ?? null
   const completedEntries = timeEntries.filter((e) => e.ended_at)
+  const activeSubtaskId = activeEntry?.subtask_id ?? null
 
   useEffect(() => {
     if (task && open) {
@@ -254,12 +255,16 @@ export function TaskDetailDialog({
     if (!result.success) toast.error(result.error ?? 'Erro ao excluir subtarefa.')
   }
 
-  async function handleStartTimer() {
+  async function handleStartTimer(subtaskId?: string) {
     if (!task) return
     setTimerLoading(true)
-    const result = await startTimer(task.id)
+    const result = await startTimer(task.id, subtaskId)
     if (result.data) {
-      setTimeEntries((prev) => [result.data!, ...prev])
+      // If stopping a previous timer, update it first
+      setTimeEntries((prev) => {
+        const next = prev.map((e) => e.ended_at === null ? { ...e, ended_at: new Date().toISOString() } : e)
+        return [result.data!, ...next]
+      })
     } else {
       toast.error(result.error ?? 'Erro ao iniciar timer.')
     }
@@ -276,6 +281,13 @@ export function TaskDetailDialog({
       toast.error(result.error ?? 'Erro ao parar timer.')
     }
     setTimerLoading(false)
+  }
+
+  function getSubtaskTime(subtaskId: string): number {
+    return timeEntries
+      .filter((e) => e.subtask_id === subtaskId && e.ended_at)
+      .reduce((sum, e) => sum + (e.duration_seconds ?? 0), 0) +
+      (activeEntry?.subtask_id === subtaskId ? elapsed : 0)
   }
 
   async function handleDeleteEntry(id: string) {
@@ -414,11 +426,42 @@ export function TaskDetailDialog({
                       )}>
                         {sub.title}
                       </span>
-                      {sub.status === 'in_progress' && (
-                        <span className="text-xs text-blue-500 shrink-0 bg-blue-50 dark:bg-blue-950 px-1.5 py-0.5 rounded">
-                          Em andamento
-                        </span>
-                      )}
+
+                      {/* Subtask timer */}
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {activeSubtaskId === sub.id ? (
+                          <>
+                            <span className="text-xs font-mono text-blue-600 dark:text-blue-400 tabular-nums">
+                              {formatDuration(elapsed)}
+                            </span>
+                            <button
+                              onClick={handleStopTimer}
+                              disabled={timerLoading}
+                              className="text-blue-500 hover:text-blue-700 transition-colors"
+                              title="Parar timer"
+                            >
+                              <Pause className="w-3.5 h-3.5 fill-current" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {getSubtaskTime(sub.id) > 0 && (
+                              <span className="text-xs font-mono text-muted-foreground tabular-nums">
+                                {formatDuration(getSubtaskTime(sub.id))}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => handleStartTimer(sub.id)}
+                              disabled={timerLoading}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                              title="Iniciar timer nesta subtarefa"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+
                       <button
                         onClick={() => handleDeleteSubtask(sub.id)}
                         className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
@@ -579,7 +622,7 @@ export function TaskDetailDialog({
               {activeEntry ? (
                 <div className="space-y-1.5">
                   <p className="text-xs font-mono text-blue-600 dark:text-blue-400 tabular-nums">
-                    {formatDuration(elapsed)} em andamento
+                    {formatDuration(elapsed)}{activeSubtaskId ? ' (subtarefa)' : ' em andamento'}
                   </p>
                   <Button
                     variant="outline"
@@ -599,7 +642,7 @@ export function TaskDetailDialog({
                   variant="outline"
                   size="sm"
                   className="w-full h-7 text-xs gap-1.5"
-                  onClick={handleStartTimer}
+                  onClick={() => handleStartTimer()}
                   disabled={timerLoading}
                 >
                   {timerLoading
