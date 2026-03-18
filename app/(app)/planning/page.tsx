@@ -52,7 +52,7 @@ export default function PlanningPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground italic">
-                  "Viver com intencionalidade, construir coisas que importam e nutrir as pessoas ao meu redor."
+                  Viver com intencionalidade, construir coisas que importam e nutrir as pessoas ao meu redor.
                 </p>
                 <Button variant="outline" size="sm">Editar missão</Button>
               </CardContent>

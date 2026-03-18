@@ -20,8 +20,11 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const weekStart = format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
+  const now = new Date()
+  const today = format(now, 'yyyy-MM-dd')
+  const sixDaysAgo = new Date(now)
+  sixDaysAgo.setDate(now.getDate() - 6)
+  const weekStart = format(sixDaysAgo, 'yyyy-MM-dd')
 
   const { data: checkin } = await supabase
     .from('daily_checkins').select('*').eq('user_id', user!.id).eq('date', today).single()
@@ -50,12 +53,6 @@ export default async function DashboardPage() {
     high: 'destructive',
     medium: 'secondary',
     low: 'outline',
-  }
-
-  const statusLabels: Record<string, string> = {
-    todo: 'A fazer',
-    in_progress: 'Em progresso',
-    done: 'Concluído',
   }
 
   return (
@@ -148,7 +145,7 @@ export default async function DashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground italic">"{typedCheckin.intention}"</p>
+                  <p className="text-sm text-muted-foreground italic">&ldquo;{typedCheckin.intention}&rdquo;</p>
                 </CardContent>
               </Card>
             )}

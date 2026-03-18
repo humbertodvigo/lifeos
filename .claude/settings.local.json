@@ -9,7 +9,12 @@
       "Bash(sed -i \"s|^@ ''@/components/shared/header''$|import { Header } from ''@/components/shared/header''|\" /c/Users/Humberto/lifeos/app/\\\\\\(app\\\\\\)/checkin/page.tsx)",
       "Bash(head -8 /c/Users/Humberto/lifeos/app/\\\\\\(app\\\\\\)/checkin/page.tsx)",
       "Bash(node -e \"const pkg = require\\(''''@base-ui/react/package.json''''\\); console.log\\(pkg.version\\)\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(node:*)"
     ]
   }
 }
