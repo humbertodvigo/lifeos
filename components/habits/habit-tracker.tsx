@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { CheckCircle2, Circle, Flame, Plus, Loader2, Trash2 } from 'lucide-react'
+import { CheckCircle2, Circle, Flame, Plus, Loader2, Trash2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toggleHabitLog, createHabit, deleteHabit } from '@/lib/actions/habits'
+import { EditHabitDialog } from '@/components/habits/edit-habit-dialog'
 import { Habit, HabitLog, LIFE_AREAS } from '@/types'
 
 interface HabitTrackerProps {
@@ -40,6 +41,8 @@ export function HabitTracker({ habits: initialHabits, todayLogs: initialLogs, st
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   // New habit form state
   const [newTitle, setNewTitle] = useState('')
@@ -87,6 +90,10 @@ export function HabitTracker({ habits: initialHabits, todayLogs: initialLogs, st
       }
       setTogglingId(null)
     })
+  }
+
+  function handleEditSaved(updated: Habit) {
+    setHabits((prev) => prev.map((h) => h.id === updated.id ? updated : h))
   }
 
   function handleDelete(habit: Habit) {
@@ -236,6 +243,13 @@ export function HabitTracker({ habits: initialHabits, todayLogs: initialLogs, st
         </DialogContent>
       </Dialog>
 
+      <EditHabitDialog
+        habit={editingHabit}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSaved={handleEditSaved}
+      />
+
       {habits.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center space-y-3">
@@ -306,6 +320,14 @@ export function HabitTracker({ habits: initialHabits, todayLogs: initialLogs, st
                           <Flame className="w-3 h-3 text-orange-500" />
                           {streaks[habit.id] ?? 0}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => { setEditingHabit(habit); setEditDialogOpen(true) }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                          aria-label="Editar hábito"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => !isDeleting && handleDelete(habit)}

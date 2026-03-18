@@ -199,6 +199,39 @@ export async function deleteTransaction(id: string) {
   }
 }
 
+export async function updateTransaction(
+  id: string,
+  data: {
+    amount?: number
+    type?: string
+    date?: string
+    description?: string | null
+    category_id?: string | null
+    account_id?: string
+  }
+) {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { success: false, error: 'Usuário não autenticado.' }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('transactions')
+      .update(data)
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) return { success: false, error: error.message }
+
+    revalidatePath('/finances')
+    revalidatePath('/dashboard')
+    return { success: true, error: null }
+  } catch {
+    return { success: false, error: 'Erro inesperado.' }
+  }
+}
+
 export async function getFinancialSummary() {
   try {
     const supabase = await createClient()

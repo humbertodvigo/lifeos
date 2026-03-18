@@ -158,6 +158,26 @@ export async function logContact(
   }
 }
 
+export async function getContactLogs(contactId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await (supabase as any).auth.getUser()
+    if (authError || !user) return { data: null, error: 'Usuário não autenticado.' }
+
+    const { data, error } = await (supabase as any)
+      .from('contact_logs')
+      .select('*')
+      .eq('contact_id', contactId)
+      .order('date', { ascending: false })
+      .limit(20)
+
+    if (error) return { data: null, error: error.message }
+    return { data, error: null }
+  } catch {
+    return { data: null, error: 'Erro inesperado.' }
+  }
+}
+
 export async function getContactsDueForReach() {
   try {
     const supabase = await createClient()

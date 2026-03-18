@@ -57,11 +57,21 @@ export type Task = {
   project_id: string | null
   user_id: string
   title: string
+  description: string | null
   status: 'todo' | 'in_progress' | 'done' | 'archived'
   due_date: string | null
   priority: 'low' | 'medium' | 'high'
   assignee_id: string | null
   tags: string[]
+  created_at: string
+}
+
+export type Subtask = {
+  id: string
+  task_id: string
+  user_id: string
+  title: string
+  done: boolean
   created_at: string
 }
 

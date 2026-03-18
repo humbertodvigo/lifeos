@@ -3,25 +3,19 @@
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, Loader2 } from 'lucide-react'
+import { Plus, Loader2, Search, X, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { TaskCard } from '@/components/projects/task-card'
-import { createTask, updateTaskStatus, deleteTask } from '@/lib/actions/projects'
+import { TaskDetailDialog } from '@/components/projects/task-detail-dialog'
+import { createTask, updateTaskStatus } from '@/lib/actions/projects'
 import { Task, Project } from '@/types'
 
 interface KanbanBoardProps {
@@ -48,32 +42,65 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
   const committedTasks = useRef<Task[]>(initialTasks)
   const [isPending, startTransition] = useTransition()
   const [updatingId, setUpdatingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
 
-  // New task form state
+  // Filters
+  const [search, setSearch] = useState('')
+  const [filterPriority, setFilterPriority] = useState<string>('all')
+  const [filterProject, setFilterProject] = useState<string>('all')
+  const [showFilters, setShowFilters] = useState(false)
+
+  // New task form
   const [newTitle, setNewTitle] = useState('')
   const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [newProjectId, setNewProjectId] = useState<string>('')
   const [newDueDate, setNewDueDate] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
-  // Sync with server data after router.refresh()
   useEffect(() => {
     setTasks(initialTasks)
     committedTasks.current = initialTasks
   }, [initialTasks])
 
+  // Filtered tasks
+  const filteredTasks = tasks.filter((t) => {
+    if (search && !t.title.toLowerCase().includes(search.toLowerCase()) &&
+      !(t.description ?? '').toLowerCase().includes(search.toLowerCase()) &&
+      !t.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()))) {
+      return false
+    }
+    if (filterPriority !== 'all' && t.priority !== filterPriority) return false
+    if (filterProject !== 'all' && t.project_id !== filterProject) return false
+    return true
+  })
+
   function getColumnTasks(status: Task['status']) {
-    return tasks.filter((t) => t.status === status)
+    return filteredTasks.filter((t) => t.status === status)
+  }
+
+  function handleTaskClick(task: Task) {
+    setSelectedTask(task)
+    setDetailOpen(true)
+  }
+
+  function handleTaskUpdated(updated: Task) {
+    setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t))
+    committedTasks.current = committedTasks.current.map((t) =>
+      t.id === updated.id ? updated : t
+    )
+    if (selectedTask?.id === updated.id) setSelectedTask(updated)
+  }
+
+  function handleTaskDeleted(taskId: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId))
+    committedTasks.current = committedTasks.current.filter((t) => t.id !== taskId)
   }
 
   function handleStatusChange(id: string, newStatus: Task['status']) {
     const previous = tasks
-    // Optimistic update
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
-    )
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: newStatus } : t))
     setUpdatingId(id)
 
     startTransition(async () => {
@@ -82,13 +109,6 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
         committedTasks.current = tasks.map((t) =>
           t.id === id ? { ...t, status: newStatus } : t
         )
-        const statusLabels: Record<Task['status'], string> = {
-          todo: 'A Fazer',
-          in_progress: 'Em Progresso',
-          done: 'Concluído',
-          archived: 'Arquivado',
-        }
-        toast.success(`Tarefa movida para "${statusLabels[newStatus]}".`)
       } else {
         setTasks(previous)
         toast.error(result.error ?? 'Erro ao mover tarefa.')
@@ -97,36 +117,15 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
     })
   }
 
-  function handleDelete(id: string) {
-    const previous = tasks
-    setDeletingId(id)
-    // Optimistic remove
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-
-    startTransition(async () => {
-      const result = await deleteTask(id)
-      if (result.success) {
-        committedTasks.current = committedTasks.current.filter((t) => t.id !== id)
-        toast.success('Tarefa excluída.')
-      } else {
-        setTasks(previous)
-        toast.error(result.error ?? 'Erro ao excluir tarefa.')
-      }
-      setDeletingId(null)
-    })
-  }
-
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault()
-    if (!newTitle.trim()) {
-      toast.error('Informe o título da tarefa.')
-      return
-    }
+    if (!newTitle.trim()) { toast.error('Informe o título da tarefa.'); return }
 
     const tempId = `temp-${Date.now()}`
     const tempTask: Task = {
       id: tempId,
       title: newTitle.trim(),
+      description: null,
       status: 'todo',
       priority: newPriority,
       project_id: newProjectId || null,
@@ -139,7 +138,7 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
 
     setIsCreating(true)
     setTasks((prev) => [...prev, tempTask])
-    setDialogOpen(false)
+    setCreateDialogOpen(false)
     setNewTitle('')
     setNewPriority('medium')
     setNewProjectId('')
@@ -154,26 +153,115 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
     setIsCreating(false)
 
     if (result.success) {
-      toast.success('Tarefa criada com sucesso!')
+      toast.success('Tarefa criada!')
       router.refresh()
     } else {
       setTasks((prev) => prev.filter((t) => t.id !== tempId))
-      setDialogOpen(true)
+      setCreateDialogOpen(true)
       setNewTitle(tempTask.title)
       toast.error(result.error ?? 'Erro ao criar tarefa.')
     }
   }
 
+  const activeFiltersCount = [
+    filterPriority !== 'all',
+    filterProject !== 'all',
+  ].filter(Boolean).length
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar tarefas..."
+            className="pl-8 h-9 text-sm"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5 relative"
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Filtros
+          {activeFiltersCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+              {activeFiltersCount}
+            </span>
+          )}
+        </Button>
+
+        <Button size="sm" className="h-9" onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="w-4 h-4 mr-1.5" />
           Nova tarefa
         </Button>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Filter bar */}
+      {showFilters && (
+        <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-muted-foreground">Prioridade</label>
+            <Select value={filterPriority} onValueChange={setFilterPriority}>
+              <SelectTrigger className="h-7 text-xs w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">Todas</SelectItem>
+                <SelectItem value="high" className="text-xs">Alta</SelectItem>
+                <SelectItem value="medium" className="text-xs">Média</SelectItem>
+                <SelectItem value="low" className="text-xs">Baixa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {projects.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-muted-foreground">Projeto</label>
+              <Select value={filterProject} onValueChange={setFilterProject}>
+                <SelectTrigger className="h-7 text-xs w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Todos</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {activeFiltersCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground"
+              onClick={() => { setFilterPriority('all'); setFilterProject('all') }}
+            >
+              <X className="w-3 h-3 mr-1" />
+              Limpar
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Create task dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nova tarefa</DialogTitle>
@@ -191,15 +279,8 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Prioridade</label>
-              <Select
-                value={newPriority}
-                onValueChange={(v) => {
-                  if (v) setNewPriority(v as 'low' | 'medium' | 'high')
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={newPriority} onValueChange={(v) => { if (v) setNewPriority(v as 'low' | 'medium' | 'high') }}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Baixa</SelectItem>
                   <SelectItem value="medium">Média</SelectItem>
@@ -210,36 +291,21 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">
-                Data de entrega{' '}
-                <span className="text-muted-foreground font-normal">(opcional)</span>
+                Data de entrega <span className="text-muted-foreground font-normal">(opcional)</span>
               </label>
-              <Input
-                type="date"
-                value={newDueDate}
-                onChange={(e) => setNewDueDate(e.target.value)}
-              />
+              <Input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} />
             </div>
 
             {projects.length > 0 && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">
-                  Projeto{' '}
-                  <span className="text-muted-foreground font-normal">(opcional)</span>
+                  Projeto <span className="text-muted-foreground font-normal">(opcional)</span>
                 </label>
-                <Select
-                  value={newProjectId}
-                  onValueChange={(v) => {
-                    if (v !== null) setNewProjectId(v ?? '')
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione um projeto" />
-                  </SelectTrigger>
+                <Select value={newProjectId} onValueChange={(v) => { if (v !== null) setNewProjectId(v ?? '') }}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecione um projeto" /></SelectTrigger>
                   <SelectContent>
                     {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.title}
-                      </SelectItem>
+                      <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -247,29 +313,26 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
             )}
 
             <div className="flex gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => setDialogOpen(false)}
-                disabled={isCreating}
-              >
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setCreateDialogOpen(false)} disabled={isCreating}>
                 Cancelar
               </Button>
               <Button type="submit" className="flex-1" disabled={isCreating}>
-                {isCreating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Criando...
-                  </>
-                ) : (
-                  'Criar tarefa'
-                )}
+                {isCreating ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</>) : 'Criar tarefa'}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Task detail */}
+      <TaskDetailDialog
+        task={selectedTask}
+        projects={projects}
+        open={detailOpen}
+        onClose={() => { setDetailOpen(false); setSelectedTask(null) }}
+        onUpdated={handleTaskUpdated}
+        onDeleted={handleTaskDeleted}
+      />
 
       {/* Kanban columns */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -288,24 +351,21 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
               <CardContent className="flex-1 flex flex-col gap-2 min-h-[120px]">
                 {colTasks.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-4">
-                    Nenhuma tarefa
+                    {search || activeFiltersCount > 0 ? 'Nenhum resultado' : 'Nenhuma tarefa'}
                   </p>
                 ) : (
                   colTasks.map((task) => (
                     <TaskCard
                       key={task.id}
                       task={task}
-                      onStatusChange={handleStatusChange}
-                      onDelete={handleDelete}
-                      isUpdating={
-                        (updatingId === task.id || deletingId === task.id) && isPending
-                      }
+                      onClick={handleTaskClick}
+                      isUpdating={(updatingId === task.id) && isPending}
                     />
                   ))
                 )}
                 <button
                   type="button"
-                  onClick={() => setDialogOpen(true)}
+                  onClick={() => setCreateDialogOpen(true)}
                   className="w-full mt-auto rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-muted transition-colors"
                 >
                   + Adicionar tarefa

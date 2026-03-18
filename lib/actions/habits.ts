@@ -85,6 +85,30 @@ export async function createHabit(data: CreateHabitData): Promise<ActionResult> 
   }
 }
 
+export async function updateHabit(
+  id: string,
+  data: { title?: string; frequency?: 'daily' | 'weekly' | 'custom'; area?: string | null; target_streak?: number }
+): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { success: false, error: 'Usuário não autenticado.' }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('habits')
+      .update(data)
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) return { success: false, error: error.message }
+    revalidatePath('/habits')
+    return { success: true, error: null }
+  } catch {
+    return { success: false, error: 'Erro inesperado.' }
+  }
+}
+
 export async function deleteHabit(id: string): Promise<ActionResult> {
   try {
     const supabase = await createClient()

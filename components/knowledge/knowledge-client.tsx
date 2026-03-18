@@ -30,7 +30,7 @@ import { deleteNote, createBook } from '@/lib/actions/knowledge'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Trash2, BookOpen } from 'lucide-react'
+import { Plus, Trash2, BookOpen, Search, X } from 'lucide-react'
 
 interface Note {
   id: string
@@ -83,13 +83,31 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
   const [notes, setNotes] = useState<Note[]>(initialNotes)
   const [books, setBooks] = useState<Book[]>(initialBooks)
   const [noteFilter, setNoteFilter] = useState('')
+  const [noteSearch, setNoteSearch] = useState('')
+  const [bookSearch, setBookSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [addBookOpen, setAddBookOpen] = useState(false)
 
-  const filteredNotes = noteFilter
-    ? notes.filter((n) => n.type === noteFilter)
-    : notes
+  const filteredNotes = notes.filter((n) => {
+    if (noteFilter && n.type !== noteFilter) return false
+    if (noteSearch) {
+      const q = noteSearch.toLowerCase()
+      return (
+        n.title.toLowerCase().includes(q) ||
+        (n.content ?? '').toLowerCase().includes(q) ||
+        n.tags.some((t) => t.toLowerCase().includes(q))
+      )
+    }
+    return true
+  })
+
+  const filteredBooks = bookSearch
+    ? books.filter((b) => {
+        const q = bookSearch.toLowerCase()
+        return b.title.toLowerCase().includes(q) || (b.author ?? '').toLowerCase().includes(q)
+      })
+    : books
 
   function handleNewNote() {
     setSelectedNote(null)
@@ -163,6 +181,24 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
 
             {/* Notes Tab */}
             <TabsContent value="notes" className="space-y-4 mt-0">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  value={noteSearch}
+                  onChange={(e) => setNoteSearch(e.target.value)}
+                  placeholder="Buscar notas..."
+                  className="pl-8 h-9 text-sm"
+                />
+                {noteSearch && (
+                  <button
+                    onClick={() => setNoteSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               <div className="flex gap-2 flex-wrap">
                 {NOTE_FILTERS.map((f) => (
                   <button
@@ -251,8 +287,25 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
 
             {/* Books Tab */}
             <TabsContent value="books" className="space-y-6 mt-0">
-              <div className="flex justify-end">
-                <Button size="sm" onClick={() => setAddBookOpen(true)}>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input
+                    value={bookSearch}
+                    onChange={(e) => setBookSearch(e.target.value)}
+                    placeholder="Buscar livros..."
+                    className="pl-8 h-9 text-sm"
+                  />
+                  {bookSearch && (
+                    <button
+                      onClick={() => setBookSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <Button size="sm" className="h-9" onClick={() => setAddBookOpen(true)}>
                   <BookOpen className="w-4 h-4 mr-1" />
                   Novo Livro
                 </Button>
@@ -260,21 +313,21 @@ export function KnowledgeClient({ initialNotes, initialBooks }: KnowledgeClientP
 
               <BookSection
                 title="Lendo"
-                books={readingBooks}
+                books={filteredBooks.filter((b) => b.status === 'reading')}
                 emptyText="Nenhum livro em leitura."
                 onUpdated={handleBookUpdated}
                 onDeleted={handleBookDeleted}
               />
               <BookSection
                 title="Quero Ler"
-                books={wantToReadBooks}
+                books={filteredBooks.filter((b) => b.status === 'want_to_read')}
                 emptyText="Nenhum livro na lista."
                 onUpdated={handleBookUpdated}
                 onDeleted={handleBookDeleted}
               />
               <BookSection
                 title="Lidos"
-                books={readBooks}
+                books={filteredBooks.filter((b) => b.status === 'read')}
                 emptyText="Nenhum livro concluído."
                 onUpdated={handleBookUpdated}
                 onDeleted={handleBookDeleted}

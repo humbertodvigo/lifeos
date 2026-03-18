@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { Project, Task } from '@/types'
+import { Project, Task, Subtask } from '@/types'
 
 interface CreateProjectData {
   title: string
@@ -20,6 +20,7 @@ interface CreateTaskData {
   tags?: string[]
 }
 
+type SubtasksResult = { data: Subtask[]; error: string | null }
 type ProjectsResult = { data: (Project & { task_count: number })[]; error: string | null }
 type TasksResult = { data: Task[]; error: string | null }
 type ActionResult = { success: boolean; error: string | null }
@@ -410,5 +411,84 @@ export async function updateTaskStatus(
   } catch (err) {
     console.error('updateTaskStatus unexpected error:', err)
     return { success: false, error: 'Erro inesperado ao atualizar status.' }
+  }
+}
+
+export async function getSubtasks(taskId: string): Promise<SubtasksResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { data: [], error: 'Usuário não autenticado.' }
+
+    const { data, error } = await supabase
+      .from('subtasks')
+      .select('*')
+      .eq('task_id', taskId)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+
+    if (error) return { data: [], error: error.message }
+    return { data: (data ?? []) as Subtask[], error: null }
+  } catch {
+    return { data: [], error: 'Erro inesperado.' }
+  }
+}
+
+export async function createSubtask(taskId: string, title: string): Promise<{ data: Subtask | null; error: string | null }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { data: null, error: 'Usuário não autenticado.' }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from('subtasks')
+      .insert({ task_id: taskId, user_id: user.id, title, done: false })
+      .select()
+      .single()
+
+    if (error) return { data: null, error: error.message }
+    return { data: data as Subtask, error: null }
+  } catch {
+    return { data: null, error: 'Erro inesperado.' }
+  }
+}
+
+export async function toggleSubtask(id: string, done: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { success: false, error: 'Usuário não autenticado.' }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('subtasks')
+      .update({ done })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, error: null }
+  } catch {
+    return { success: false, error: 'Erro inesperado.' }
+  }
+}
+
+export async function deleteSubtask(id: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return { success: false, error: 'Usuário não autenticado.' }
+
+    const { error } = await supabase
+      .from('subtasks')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, error: null }
+  } catch {
+    return { success: false, error: 'Erro inesperado.' }
   }
 }
