@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npx:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(xargs sed:*)",
+      "Bash(head:*)",
+      "Bash(sed -i \"s|^@ ''@/components/shared/header''$|import { Header } from ''@/components/shared/header''|\" /c/Users/Humberto/lifeos/app/\\\\\\(app\\\\\\)/checkin/page.tsx)",
+      "Bash(head -8 /c/Users/Humberto/lifeos/app/\\\\\\(app\\\\\\)/checkin/page.tsx)",
+      "Bash(node -e \"const pkg = require\\(''''@base-ui/react/package.json''''\\); console.log\\(pkg.version\\)\")",
+      "Bash(git add:*)"
     ]
   }
 }
