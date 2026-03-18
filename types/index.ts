@@ -57,6 +57,7 @@ export type Task = {
   project_id: string | null
   user_id: string
   title: string
+  description: string | null
   status: 'todo' | 'in_progress' | 'done' | 'archived'
   due_date: string | null
   priority: 'low' | 'medium' | 'high'
@@ -69,7 +70,18 @@ export type Subtask = {
   id: string
   task_id: string
   title: string
-  done: boolean
+  status: 'todo' | 'in_progress' | 'done'
+}
+
+export type TimeEntry = {
+  id: string
+  task_id: string
+  user_id: string
+  started_at: string
+  ended_at: string | null
+  duration_seconds: number | null
+  note: string | null
+  created_at: string
 }
 
 export type Project = {

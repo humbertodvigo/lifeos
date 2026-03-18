@@ -238,6 +238,7 @@ export interface Database {
           project_id: string | null
           user_id: string
           title: string
+          description: string | null
           status: string
           due_date: string | null
           priority: string
@@ -250,6 +251,7 @@ export interface Database {
           project_id?: string | null
           user_id: string
           title: string
+          description?: string | null
           status?: string
           due_date?: string | null
           priority?: string
@@ -262,6 +264,7 @@ export interface Database {
           project_id?: string | null
           user_id?: string
           title?: string
+          description?: string | null
           status?: string
           due_date?: string | null
           priority?: string
@@ -276,18 +279,53 @@ export interface Database {
           task_id: string
           title: string
           done: boolean
+          status: string
         }
         Insert: {
           id?: string
           task_id: string
           title: string
           done?: boolean
+          status?: string
         }
         Update: {
           id?: string
           task_id?: string
           title?: string
           done?: boolean
+          status?: string
+        }
+      }
+      time_entries: {
+        Row: {
+          id: string
+          task_id: string
+          user_id: string
+          started_at: string
+          ended_at: string | null
+          duration_seconds: number | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          user_id: string
+          started_at?: string
+          ended_at?: string | null
+          duration_seconds?: number | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          user_id?: string
+          started_at?: string
+          ended_at?: string | null
+          duration_seconds?: number | null
+          note?: string | null
+          created_at?: string
         }
       }
       habits: {

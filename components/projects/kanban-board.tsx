@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Loader2, Search, X, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -56,6 +57,7 @@ export function KanbanBoard({ tasks: initialTasks, projects, projectFilter, onTa
 
   // New task form
   const [newTitle, setNewTitle] = useState('')
+  const [newDescription, setNewDescription] = useState('')
   const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [newProjectId, setNewProjectId] = useState<string>('')
   const [newDueDate, setNewDueDate] = useState('')
@@ -135,6 +137,7 @@ export function KanbanBoard({ tasks: initialTasks, projects, projectFilter, onTa
     const tempTask: Task = {
       id: tempId,
       title: newTitle.trim(),
+      description: newDescription.trim() || null,
       status: 'todo',
       priority: newPriority,
       project_id: newProjectId || null,
@@ -149,12 +152,14 @@ export function KanbanBoard({ tasks: initialTasks, projects, projectFilter, onTa
     setTasks((prev) => [...prev, tempTask])
     setCreateDialogOpen(false)
     setNewTitle('')
+    setNewDescription('')
     setNewPriority('medium')
     setNewProjectId('')
     setNewDueDate('')
 
     const result = await createTask({
       title: tempTask.title,
+      description: tempTask.description ?? undefined,
       priority: tempTask.priority,
       project_id: tempTask.project_id ?? undefined,
       due_date: tempTask.due_date ?? undefined,
@@ -283,6 +288,17 @@ export function KanbanBoard({ tasks: initialTasks, projects, projectFilter, onTa
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Descrição <span className="text-muted-foreground font-normal">(opcional)</span>
+              </label>
+              <Textarea
+                placeholder="Descrição ou contexto..."
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                className="min-h-[60px] resize-none text-sm"
               />
             </div>
 

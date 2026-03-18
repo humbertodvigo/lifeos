@@ -14,6 +14,7 @@ interface CreateProjectData {
 
 interface CreateTaskData {
   title: string
+  description?: string
   project_id?: string
   priority?: 'low' | 'medium' | 'high'
   due_date?: string
@@ -282,6 +283,7 @@ export async function createTask(data: CreateTaskData): Promise<ActionResult> {
     const { error } = await (supabase as any).from('tasks').insert({
       user_id: user.id,
       title: data.title,
+      description: data.description ?? null,
       project_id: data.project_id ?? null,
       priority: data.priority ?? 'medium',
       due_date: data.due_date ?? null,
@@ -443,7 +445,7 @@ export async function createSubtask(taskId: string, title: string): Promise<{ da
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('subtasks')
-      .insert({ task_id: taskId, title, done: false })
+      .insert({ task_id: taskId, title, done: false, status: 'todo' })
       .select()
       .single()
 
@@ -454,7 +456,7 @@ export async function createSubtask(taskId: string, title: string): Promise<{ da
   }
 }
 
-export async function toggleSubtask(id: string, done: boolean): Promise<ActionResult> {
+export async function updateSubtaskStatus(id: string, status: 'todo' | 'in_progress' | 'done'): Promise<ActionResult> {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -463,7 +465,7 @@ export async function toggleSubtask(id: string, done: boolean): Promise<ActionRe
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)
       .from('subtasks')
-      .update({ done })
+      .update({ status, done: status === 'done' })
       .eq('id', id)
 
     if (error) return { success: false, error: error.message }
