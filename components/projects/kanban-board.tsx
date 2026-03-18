@@ -21,6 +21,8 @@ import { Task, Project } from '@/types'
 interface KanbanBoardProps {
   tasks: Task[]
   projects: Project[]
+  projectFilter?: string | null // null=all, '__none__'=no project, projectId=specific
+  onTasksChange?: (tasks: Task[]) => void
 }
 
 type Column = {
@@ -36,7 +38,7 @@ const COLUMNS: Column[] = [
   { id: 'archived', label: 'Arquivado', colorClass: 'border-t-gray-400' },
 ]
 
-export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps) {
+export function KanbanBoard({ tasks: initialTasks, projects, projectFilter, onTasksChange }: KanbanBoardProps) {
   const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const committedTasks = useRef<Task[]>(initialTasks)
@@ -64,12 +66,18 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
     committedTasks.current = initialTasks
   }, [initialTasks])
 
-  // Filtered tasks
+  // Filtered tasks (panel filter + local filters)
   const filteredTasks = tasks.filter((t) => {
-    if (search && !t.title.toLowerCase().includes(search.toLowerCase()) &&
-      !(t.description ?? '').toLowerCase().includes(search.toLowerCase()) &&
-      !t.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()))) {
-      return false
+    // Panel-level project filter
+    if (projectFilter !== undefined && projectFilter !== null) {
+      if (projectFilter === '__none__' && t.project_id !== null) return false
+      if (projectFilter !== '__none__' && t.project_id !== projectFilter) return false
+    }
+    // Search
+    if (search) {
+      const q = search.toLowerCase()
+      if (!t.title.toLowerCase().includes(q) &&
+        !t.tags.some((tag) => tag.toLowerCase().includes(q))) return false
     }
     if (filterPriority !== 'all' && t.priority !== filterPriority) return false
     if (filterProject !== 'all' && t.project_id !== filterProject) return false
@@ -86,16 +94,18 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
   }
 
   function handleTaskUpdated(updated: Task) {
-    setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t))
-    committedTasks.current = committedTasks.current.map((t) =>
-      t.id === updated.id ? updated : t
-    )
+    const next = tasks.map((t) => t.id === updated.id ? updated : t)
+    setTasks(next)
+    committedTasks.current = committedTasks.current.map((t) => t.id === updated.id ? updated : t)
     if (selectedTask?.id === updated.id) setSelectedTask(updated)
+    onTasksChange?.(next)
   }
 
   function handleTaskDeleted(taskId: string) {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId))
+    const next = tasks.filter((t) => t.id !== taskId)
+    setTasks(next)
     committedTasks.current = committedTasks.current.filter((t) => t.id !== taskId)
+    onTasksChange?.(next)
   }
 
   function handleStatusChange(id: string, newStatus: Task['status']) {
@@ -125,7 +135,6 @@ export function KanbanBoard({ tasks: initialTasks, projects }: KanbanBoardProps)
     const tempTask: Task = {
       id: tempId,
       title: newTitle.trim(),
-      description: null,
       status: 'todo',
       priority: newPriority,
       project_id: newProjectId || null,

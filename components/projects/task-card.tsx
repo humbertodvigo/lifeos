@@ -59,12 +59,7 @@ export function TaskCard({ task, subtaskCount, subtaskDone, onClick, isUpdating 
         {task.title}
       </p>
 
-      {/* Description snippet */}
-      {task.description && (
-        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-          {task.description}
-        </p>
-      )}
+
 
       {/* Footer metadata */}
       <div className="flex items-center gap-2 flex-wrap">

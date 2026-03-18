@@ -419,13 +419,13 @@ export async function getSubtasks(taskId: string): Promise<SubtasksResult> {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return { data: [], error: 'Usuário não autenticado.' }
+    // user check is for auth gate — subtasks table has no user_id column (scoped by task_id → user ownership)
+    void user
 
     const { data, error } = await supabase
       .from('subtasks')
       .select('*')
       .eq('task_id', taskId)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
 
     if (error) return { data: [], error: error.message }
     return { data: (data ?? []) as Subtask[], error: null }
@@ -443,7 +443,7 @@ export async function createSubtask(taskId: string, title: string): Promise<{ da
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from('subtasks')
-      .insert({ task_id: taskId, user_id: user.id, title, done: false })
+      .insert({ task_id: taskId, title, done: false })
       .select()
       .single()
 
@@ -465,7 +465,6 @@ export async function toggleSubtask(id: string, done: boolean): Promise<ActionRe
       .from('subtasks')
       .update({ done })
       .eq('id', id)
-      .eq('user_id', user.id)
 
     if (error) return { success: false, error: error.message }
     return { success: true, error: null }
@@ -484,7 +483,6 @@ export async function deleteSubtask(id: string): Promise<ActionResult> {
       .from('subtasks')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
 
     if (error) return { success: false, error: error.message }
     return { success: true, error: null }
