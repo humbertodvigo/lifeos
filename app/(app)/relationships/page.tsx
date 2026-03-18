@@ -1,108 +1,122 @@
+import {
+  getContacts,
+  getContactsDueForReach,
+  getUpcomingBirthdays,
+} from '@/lib/actions/relationships'
 import { Header } from '@/components/shared/header'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { ContactList } from '@/components/relationships/contact-list'
+import { differenceInDays, parseISO } from 'date-fns'
+import { AlertTriangle, Cake } from 'lucide-react'
 
-const contacts = [
-  { name: 'Ana Lima', relation: 'Cônjuge', lastContact: 'Hoje', priority: 'alta' },
-  { name: 'Carlos Mendes', relation: 'Pai', lastContact: '3 dias', priority: 'alta' },
-  { name: 'Fernanda Costa', relation: 'Amiga próxima', lastContact: '1 semana', priority: 'média' },
-  { name: 'Rafael Souza', relation: 'Mentor', lastContact: '2 semanas', priority: 'média' },
-  { name: 'Julia Alves', relation: 'Colega de trabalho', lastContact: '1 mês', priority: 'baixa' },
-]
-
-const birthdays = [
-  { name: 'Carlos Mendes', date: '22/03', daysLeft: 4 },
-  { name: 'Fernanda Costa', date: '05/04', daysLeft: 18 },
-  { name: 'Marcos Lima', date: '12/04', daysLeft: 25 },
-  { name: 'Beatriz Rocha', date: '01/05', daysLeft: 44 },
-]
-
-const priorityColor: Record<string, string> = {
-  alta: 'bg-red-500',
-  média: 'bg-yellow-500',
-  baixa: 'bg-green-500',
+function daysUntilBirthday(birthday: string): number {
+  const today = new Date()
+  const bday = parseISO(birthday)
+  const thisYear = new Date(today.getFullYear(), bday.getMonth(), bday.getDate())
+  if (thisYear < today) thisYear.setFullYear(today.getFullYear() + 1)
+  return differenceInDays(thisYear, today)
 }
 
-export default function RelationshipsPage() {
+export default async function RelationshipsPage() {
+  const [contactsRes, dueRes, birthdaysRes] = await Promise.all([
+    getContacts(),
+    getContactsDueForReach(),
+    getUpcomingBirthdays(30),
+  ])
+
+  const contacts = (contactsRes.data ?? []) as Array<{id:string;name:string;relationship:string|null;frequency_days:number|null;notes:string|null;birthday:string|null;last_contact_at:string|null;tags:string[]}>
+  const due = (dueRes.data ?? []) as Array<{id:string;name:string;relationship:string|null;frequency_days:number|null;notes:string|null;birthday:string|null;last_contact_at:string|null;tags:string[]}>
+  const birthdays = (birthdaysRes.data ?? []) as Array<{id:string;name:string;relationship:string|null;frequency_days:number|null;notes:string|null;birthday:string|null;last_contact_at:string|null;tags:string[]}>
+
   return (
     <div className="flex flex-col h-full">
       <Header
         title="Relacionamentos"
-        description="CRM pessoal — pessoas que importam"
+        description="CRM pessoal — cuide das pessoas que importam"
       />
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
 
-          <div className="flex justify-end">
-            <Button>Novo contato</Button>
-          </div>
+          {/* Alert: overdue contacts */}
+          {due.length > 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50/60 dark:border-red-900/50 dark:bg-red-950/20 p-4 flex gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                  {due.length} contato{due.length > 1 ? 's' : ''} precisam de atenção
+                </p>
+                <p className="text-xs text-red-600/80 dark:text-red-400/70 mt-0.5">
+                  {due.map((c) => c.name).join(', ')}
+                </p>
+              </div>
+            </div>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Contatos Importantes */}
+          {/* Upcoming birthdays */}
+          {birthdays.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle>Contatos Importantes</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Cake className="h-4 w-4 text-pink-500" />
+                  Aniversários nos próximos 30 dias
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-3">
-                  {contacts.map((c) => (
-                    <li
-                      key={c.name}
-                      className="flex items-center justify-between rounded-md border px-3 py-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${priorityColor[c.priority]}`} />
-                        <div>
-                          <p className="text-sm font-medium">{c.name}</p>
-                          <p className="text-xs text-muted-foreground">{c.relation}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Último contato</p>
-                        <p className="text-xs font-medium">{c.lastContact}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            {/* Próximos Aniversários */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Próximos Aniversários</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  {birthdays.map((b) => (
-                    <li
-                      key={b.name}
-                      className="flex items-center justify-between rounded-md border px-3 py-2"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{b.name}</p>
-                        <p className="text-xs text-muted-foreground">{b.date}</p>
-                      </div>
-                      <span
-                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          b.daysLeft <= 7
-                            ? 'bg-red-100 text-red-600'
-                            : b.daysLeft <= 30
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
+                <ul className="space-y-2">
+                  {birthdays.map((b) => {
+                    const daysLeft = b.birthday ? daysUntilBirthday(b.birthday) : null
+                    return (
+                      <li
+                        key={b.id}
+                        className="flex items-center justify-between rounded-md border px-3 py-2"
                       >
-                        {b.daysLeft === 0 ? 'Hoje!' : `em ${b.daysLeft} dias`}
-                      </span>
-                    </li>
-                  ))}
+                        <div>
+                          <p className="text-sm font-medium">{b.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {b.birthday
+                              ? new Date(b.birthday + 'T00:00:00').toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: 'long',
+                                })
+                              : ''}
+                          </p>
+                        </div>
+                        {daysLeft !== null && (
+                          <span
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                              daysLeft === 0
+                                ? 'bg-pink-100 text-pink-600 dark:bg-pink-950/50 dark:text-pink-400'
+                                : daysLeft <= 7
+                                ? 'bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400'
+                                : daysLeft <= 14
+                                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {daysLeft === 0 ? 'Hoje!' : `em ${daysLeft} dias`}
+                          </span>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               </CardContent>
             </Card>
+          )}
 
-          </div>
+          {/* All contacts */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Todos os contatos ({contacts.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ContactList contacts={contacts} />
+            </CardContent>
+          </Card>
+
         </div>
       </ScrollArea>
     </div>

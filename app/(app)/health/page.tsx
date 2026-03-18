@@ -1,118 +1,105 @@
+import { getTodayHealthLog, getHealthLogs, getHealthStats } from '@/lib/actions/health'
 import { Header } from '@/components/shared/header'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { HealthForm } from '@/components/health/health-form'
+import { HealthChart } from '@/components/health/health-chart'
+import { Moon, Dumbbell, Droplets, Smile } from 'lucide-react'
 
-const weekSummary = [
-  { day: 'Seg', sleep: 7.5, exercise: true, water: 8, mood: 7 },
-  { day: 'Ter', sleep: 6.0, exercise: false, water: 6, mood: 5 },
-  { day: 'Qua', sleep: 8.0, exercise: true, water: 9, mood: 9 },
-  { day: 'Qui', sleep: 7.0, exercise: true, water: 7, mood: 8 },
-  { day: 'Sex', sleep: 6.5, exercise: false, water: 5, mood: 6 },
-  { day: 'Sáb', sleep: 9.0, exercise: true, water: 10, mood: 9 },
-  { day: 'Dom', sleep: 8.5, exercise: false, water: 8, mood: 8 },
-]
+export default async function HealthPage() {
+  const [todayResult, logsResult, statsResult] = await Promise.all([
+    getTodayHealthLog(),
+    getHealthLogs(7),
+    getHealthStats(),
+  ])
 
-export default function HealthPage() {
+  const today = todayResult.data
+  const logs = logsResult.data ?? []
+  const stats = statsResult.data
+
   return (
     <div className="flex flex-col h-full">
       <Header
         title="Saúde & Bem-estar"
-        description="Acompanhe sua saúde e energia"
+        description="Acompanhe sono, exercício, hidratação e humor diariamente."
       />
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
 
-          {/* Registro de Hoje */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Registro de Hoje</CardTitle>
-              <Button size="sm">Salvar</Button>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Top two columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left: Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Registrar hoje</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <HealthForm initialData={today} />
+              </CardContent>
+            </Card>
 
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Sono</p>
-                  <div className="flex items-end gap-1">
-                    <span className="text-2xl font-bold">7,5</span>
-                    <span className="text-sm text-muted-foreground mb-0.5">h</span>
+            {/* Right: Weekly averages */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Média da semana</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {stats ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                      <Moon className="h-5 w-5 text-blue-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Sono médio</p>
+                        <p className="text-xl font-semibold">
+                          {stats.avg_sleep != null ? `${stats.avg_sleep}h` : '—'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                      <Dumbbell className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Exercício médio</p>
+                        <p className="text-xl font-semibold">
+                          {stats.avg_exercise != null ? `${stats.avg_exercise}min` : '—'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                      <Smile className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Humor médio</p>
+                        <p className="text-xl font-semibold">
+                          {stats.avg_mood != null ? `${stats.avg_mood}/10` : '—'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                      <Droplets className="h-5 w-5 text-cyan-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Água média</p>
+                        <p className="text-xl font-semibold">
+                          {stats.avg_water != null ? `${stats.avg_water}ml` : '—'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">Meta: 8h</p>
-                </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhum dado disponível ainda.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Exercício</p>
-                  <div className="flex items-end gap-1">
-                    <span className="text-2xl font-bold">45</span>
-                    <span className="text-sm text-muted-foreground mb-0.5">min</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Musculação</p>
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Água</p>
-                  <div className="flex items-end gap-1">
-                    <span className="text-2xl font-bold">6</span>
-                    <span className="text-sm text-muted-foreground mb-0.5">/ 8 copos</span>
-                  </div>
-                  <div className="flex gap-1 mt-1">
-                    {Array.from({ length: 8 }, (_, i) => (
-                      <span
-                        key={i}
-                        className={`w-4 h-4 rounded-sm ${i < 6 ? 'bg-blue-400' : 'bg-muted'}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Humor</p>
-                  <div className="flex items-end gap-1">
-                    <span className="text-2xl font-bold">8</span>
-                    <span className="text-sm text-muted-foreground mb-0.5">/ 10</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Ótimo</p>
-                </div>
-
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Resumo da Semana */}
+          {/* Bottom: Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Resumo da Semana</CardTitle>
+              <CardTitle className="text-base">Últimos 7 dias — Sono &amp; Humor</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-xs text-muted-foreground border-b">
-                      <th className="text-left py-2 pr-4">Dia</th>
-                      <th className="text-center py-2 px-3">Sono</th>
-                      <th className="text-center py-2 px-3">Exercício</th>
-                      <th className="text-center py-2 px-3">Água</th>
-                      <th className="text-center py-2 px-3">Humor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {weekSummary.map((row) => (
-                      <tr key={row.day} className="border-b last:border-0">
-                        <td className="py-2 pr-4 font-medium">{row.day}</td>
-                        <td className="text-center py-2 px-3 text-muted-foreground">{row.sleep}h</td>
-                        <td className="text-center py-2 px-3">
-                          <span className={row.exercise ? 'text-green-500' : 'text-muted-foreground'}>
-                            {row.exercise ? '✓' : '—'}
-                          </span>
-                        </td>
-                        <td className="text-center py-2 px-3 text-muted-foreground">{row.water} copos</td>
-                        <td className="text-center py-2 px-3 text-muted-foreground">{row.mood}/10</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <HealthChart logs={logs} />
             </CardContent>
           </Card>
 

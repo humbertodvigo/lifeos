@@ -19,7 +19,14 @@
       "Bash(vercel:*)",
       "Bash(curl -sI https://lifeos-one-phi.vercel.app)",
       "Bash(curl -sI https://lifeos-63xy068t3-humbertodvigos-projects.vercel.app)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Read(//c/Users/Humberto/.local/share/**)",
+      "Read(//c/Users/Humberto/AppData/Roaming/com.vercel.cli/**)",
+      "Read(//c/Users/Humberto/**)",
+      "Bash(find ~/AppData -name *.json -path *vercel*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)\\)\")",
+      "Bash(sed -i 's/const vision = visionResult\\\\.data/const vision = visionResult.data as {mission:string|null;values:string[]} | null/' /c/Users/Humberto/lifeos/app/\\\\\\(app\\\\\\)/planning/page.tsx)",
+      "Bash(sed -i 's/const okrs = okrsResult\\\\.data/const okrs = \\(okrsResult.data ?? []\\) as Array<{id:string;title:string;period:string;year:number;quarter:number|null;status:string;shared:boolean;key_results:Array<{id:string;okr_id:string;title:string;target:number;current:number;unit:string;due_date:string|null}>}>/' /c/Users/Humberto/lifeos/app/\\\\\\(app\\\\\\)/planning/page.tsx)"
     ]
   }
 }

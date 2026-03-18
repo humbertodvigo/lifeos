@@ -1,124 +1,182 @@
+import {
+  getFinancialSummary,
+  getAccounts,
+  getTransactions,
+  getFinancialGoals,
+} from '@/lib/actions/finances'
 import { Header } from '@/components/shared/header'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { TransactionForm } from '@/components/finances/transaction-form'
+import { TransactionList } from '@/components/finances/transaction-list'
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, CreditCard } from 'lucide-react'
 
-const recentTransactions = [
-  { desc: 'Supermercado', value: -342.5, category: 'Alimentação', date: '17/03' },
-  { desc: 'Salário', value: 8500.0, category: 'Receita', date: '15/03' },
-  { desc: 'Netflix', value: -55.9, category: 'Assinaturas', date: '14/03' },
-  { desc: 'Freelance — logo', value: 1200.0, category: 'Receita extra', date: '12/03' },
-  { desc: 'Gasolina', value: -180.0, category: 'Transporte', date: '11/03' },
-]
+export default async function FinancesPage() {
+  const [summaryRes, accountsRes, transactionsRes, goalsRes] = await Promise.all([
+    getFinancialSummary(),
+    getAccounts(),
+    getTransactions(10),
+    getFinancialGoals(),
+  ])
 
-const goals = [
-  { name: 'Fundo de emergência', current: 18000, target: 30000 },
-  { name: 'Viagem Europa', current: 4500, target: 15000 },
-  { name: 'MacBook Pro', current: 2200, target: 3500 },
-]
+  const summary = summaryRes.data
+  const accounts = (accountsRes.data ?? []) as Array<{id:string;name:string;type:string;balance:number;currency:string;shared:boolean}>
+  const transactions = transactionsRes.data ?? []
+  const goals = (goalsRes.data ?? []) as Array<{id:string;title:string;target:number;current:number;deadline:string|null;shared:boolean}>
 
-export default function FinancesPage() {
+  const fmt = (n: number) =>
+    n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
   return (
     <div className="flex flex-col h-full">
       <Header
         title="Finanças"
-        description="Controle financeiro pessoal e familiar"
+        description="Controle financeiro pessoal"
       />
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Header row with action */}
+          <div className="flex justify-end">
+            <TransactionForm />
+          </div>
 
+          {/* Summary stat cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <Card>
-              <CardHeader className="pb-1">
+              <CardHeader className="pb-1 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Saldo Total</CardTitle>
+                <Wallet className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-green-500">R$ 27.480</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {summary ? fmt(summary.total_balance) : '—'}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">Todas as contas</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="pb-1">
+              <CardHeader className="pb-1 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Receitas do Mês</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-blue-500">R$ 9.700</p>
-                <p className="text-xs text-muted-foreground mt-1">+14% vs mês anterior</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {summary ? fmt(summary.month_income) : '—'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Mês atual</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="pb-1">
+              <CardHeader className="pb-1 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Despesas do Mês</CardTitle>
+                <TrendingDown className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-red-500">R$ 4.230</p>
-                <p className="text-xs text-muted-foreground mt-1">-8% vs mês anterior</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {summary ? fmt(summary.month_expenses) : '—'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Mês atual</p>
               </CardContent>
             </Card>
 
+            <Card>
+              <CardHeader className="pb-1 flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Taxa de Poupança</CardTitle>
+                <PiggyBank className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  {summary != null ? `${summary.savings_rate}%` : '—'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Do total de receitas</p>
+              </CardContent>
+            </Card>
           </div>
 
+          {/* Middle columns */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Transações Recentes */}
+            {/* Transactions */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Transações Recentes</CardTitle>
-                <Button size="sm" variant="outline">Ver todas</Button>
+              <CardHeader>
+                <CardTitle className="text-base">Transações Recentes</CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-3">
-                  {recentTransactions.map((t) => (
-                    <li key={t.desc + t.date} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{t.desc}</p>
-                        <p className="text-xs text-muted-foreground">{t.category} · {t.date}</p>
-                      </div>
-                      <span className={`text-sm font-semibold ${t.value > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {t.value > 0 ? '+' : ''}R$ {Math.abs(t.value).toFixed(2).replace('.', ',')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <TransactionList transactions={transactions as any} />
               </CardContent>
             </Card>
 
-            {/* Metas Financeiras */}
+            {/* Goals */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Metas Financeiras</CardTitle>
-                <Button size="sm" variant="outline">Nova meta</Button>
+              <CardHeader>
+                <CardTitle className="text-base">Metas Financeiras</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                {goals.map((g) => {
-                  const pct = Math.round((g.current / g.target) * 100)
-                  return (
-                    <div key={g.name} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{g.name}</span>
-                        <span className="text-muted-foreground">{pct}%</span>
+                {goals.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma meta cadastrada.</p>
+                ) : (
+                  goals.map((g) => {
+                    const pct = g.target > 0 ? Math.min(Math.round((g.current / g.target) * 100), 100) : 0
+                    return (
+                      <div key={g.id} className="space-y-1.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{g.title}</span>
+                          <span className="text-muted-foreground">{pct}%</span>
+                        </div>
+                        <Progress value={pct} className="h-2" />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{fmt(g.current)}</span>
+                          <span>{fmt(g.target)}</span>
+                        </div>
+                        {g.deadline && (
+                          <p className="text-xs text-muted-foreground">
+                            Prazo: {new Date(g.deadline).toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
                       </div>
-                      <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>R$ {g.current.toLocaleString('pt-BR')}</span>
-                        <span>R$ {g.target.toLocaleString('pt-BR')}</span>
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })
+                )}
               </CardContent>
             </Card>
-
           </div>
+
+          {/* Accounts section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Contas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {accounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {accounts.map((account) => (
+                    <div
+                      key={account.id}
+                      className="flex items-center gap-3 rounded-lg border p-3"
+                    >
+                      <CreditCard className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{account.name}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{account.type}</p>
+                      </div>
+                      <p className={`text-sm font-semibold shrink-0 ${account.balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {account.balance.toLocaleString('pt-BR', {
+                          style: 'currency',
+                          currency: account.currency ?? 'BRL',
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
         </div>
       </ScrollArea>
     </div>
